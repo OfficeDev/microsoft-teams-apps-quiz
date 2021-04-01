@@ -56,12 +56,12 @@ the steps in the [Deployment guide](https://github.com/OfficeDev/microsoft-teams
 Thoughts? Questions? Ideas? Share them with us on [Teams
 UserVoice](https://microsoftteams.uservoice.com/forums/555103-public)!
 
-Please report bugs and other code issues here.
+Please report bugs and other code issues [here](https://github.com/OfficeDev/microsoft-teams-apps-quiz/issues/new).
 
 ## Legal Notice
 
 This app template is provided under the [MIT
-License](https://github.com/OfficeDev/microsoft-teams-apps-survey/blob/main/LICENSE)
+License](https://github.com/OfficeDev/microsoft-teams-apps-quiz/blob/main/LICENSE)
 terms. In addition to these terms, by using this app template you agree to the
 following:
 
