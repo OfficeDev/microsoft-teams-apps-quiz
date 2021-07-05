@@ -21,6 +21,8 @@ let actionInstance = null;
 let actionSummary = null;
 let actionDataRows = null;
 let actionDataRowsLength = 0;
+let selfResponseDataRows = null;
+let selfResponseDataRowsLength = 0;
 let responderDate = [];
 let actionNonResponders = [];
 let myUserId = "";
@@ -34,6 +36,10 @@ let theme = "";
 let isCreator = false;
 let context = "";
 let memberCount = 0;
+let allRespondersDataRows = [];
+let allSubscriptionMembers = [];
+let userIdToMembersMap = {};
+let allRespondersDataRowsLength = 0;
 
 let dueByKey = "";
 let expiredOnKey = "";
@@ -128,11 +134,11 @@ KeyboardAccess.keydownClick(document, ".getresult");
  * @event Click event fetching result of responders
  */
 $(document).on({
-    click: function() {
+    click: async function() {
         let userId = $(this).attr("id");
         UxUtils.setHtml("#root", "");
         head();
-        createQuestionView(userId);
+        await createQuestionView(userId);
         if ($(this).attr("data-attr") !== undefined) {
             footerResponderNonResponderTabs();
         } else {
@@ -528,11 +534,11 @@ function getDataRows(actionId) {
             console.info("BatchResponse: " + JSON.stringify(batchResponse));
             actionInstance = batchResponse.responses[0].action;
             actionSummary = batchResponse.responses[1].summary;
-            actionDataRows = batchResponse.responses[2].dataRows;
-            if (actionDataRows == null) {
-                actionDataRowsLength = 0;
+            selfResponseDataRows = batchResponse.responses[2].dataRows;
+            if (selfResponseDataRows == null) {
+                selfResponseDataRowsLength = 0;
             } else {
-                actionDataRowsLength = actionDataRows.length;
+                selfResponseDataRowsLength = selfResponseDataRows.length;
             }
             createBody();
         })
@@ -553,7 +559,17 @@ async function createBody() {
     if (myUserId == dataResponse.context.userId && myUserId == actionInstance.creatorId) {
         isCreator = true;
         headCreator();
-
+        if (allRespondersDataRows.length == 0) {
+            allRespondersDataRows = await ActionHelper.getAllDataRows(actionId);
+            allRespondersDataRowsLength = allRespondersDataRows.length;
+        }
+        if (allSubscriptionMembers.length == 0) {
+            allSubscriptionMembers = await ActionHelper.getAllSubscriptionMembers(actionContext.subscription);
+            userIdToMembersMap = {};
+            allSubscriptionMembers.forEach(member => {
+                userIdToMembersMap[member.id] = member;
+            });
+        }
         if (actionInstance.status == "Closed") {
             $(".close-quiz-event").remove();
             $(".change-due-by-event").remove();
@@ -592,28 +608,26 @@ async function createBody() {
     let responderDateLength = Object.keys(responderDate).length;
     if (responderDateLength > 0) {
         if (myUserId == dataResponse.context.userId && myUserId == actionInstance.creatorId) {
-            createCreatorQuestionView();
+            await createCreatorQuestionView();
         } else if (myUserId == dataResponse.context.userId && myUserId != actionInstance.creatorId) {
             let isResponded = false;
-            responderDate.forEach(function(responder) {
-                if (responder.value2 == myUserId) {
-                    createQuestionView(myUserId);
+            for (let i = 0; i < responderDate.length; i++){
+                if (responderDate[i].value2 == myUserId){
+                    await createQuestionView(myUserId);
                     isResponded = true;
                 }
-            });
-
+            }
             if (isResponded == false) {
-                actionNonResponders.forEach(function(nonresponders) {
-                    if (nonresponders.value2 == myUserId) {
-                        let name = nonresponders.label;
-                        let matches = name.match(/\b(\w)/g); // [D,P,R]
-                        let initials = matches.join("").substring(0, 2); // DPR
-                        Localizer.getString("you_yet_respond").then(function(result) {
-                            UxUtils.setAppend("div#root div:first", UxUtils.getInitials(nonresponders.value2, initials, result));
-                            UxUtils.setAppend("div#root div:first", UxUtils.breakline());
-                            UxUtils.setAfter("div#" + nonresponders.value2, UxUtils.breakline());
-                        });
-                    }
+                let requestMembers = ActionHelper.getSusbscriptionMembers(actionContext.subscription, [myUserId]);
+                let responseMembers = await ActionHelper.executeApi(requestMembers);
+                let userProfiles = responseMembers.members;
+                let name = userProfiles[0].label;
+                let matches = name.match(/\b(\w)/g); // [D,P,R]
+                let initials = matches.join("").substring(0, 2); // DPR
+                Localizer.getString("you_yet_respond").then(function(result) {
+                    UxUtils.setAppend("div#root div:first", UxUtils.getInitials(myUserId, initials, result));
+                    UxUtils.setAppend("div#root div:first", UxUtils.breakline());
+                    UxUtils.setAfter("div#" + myUserId, UxUtils.breakline());
                 });
             }
         } else {
@@ -625,21 +639,16 @@ async function createBody() {
         }
 
     } else {
-        actionNonResponders.forEach(function(nonresponders) {
-            if (nonresponders.value2 == myUserId) {
-                if (myUserId == dataResponse.context.userId && myUserId == actionInstance.creatorId) {
-                    createCreatorQuestionView();
-                } else {
-                    let name = nonresponders.label;
-                    let matches = name.match(/\b(\w)/g); // [D,P,R]
-                    let initials = matches.join("").substring(0, 2); // DPR
-                    Localizer.getString("you_yet_respond").then(function(result) {
-                        UxUtils.setAppend("div#root div:first", UxUtils.getInitials(nonresponders.value2, initials, result));
-                        UxUtils.setAppend("div#root div:first", UxUtils.breakline());
-                        UxUtils.setAfter("div#" + nonresponders.value2, UxUtils.breakline());
-                    });
-                }
-            }
+        let requestMembers = ActionHelper.getSusbscriptionMembers(actionContext.subscription, [myUserId]);
+        let responseMembers = await ActionHelper.executeApi(requestMembers);
+        let userProfiles = responseMembers.members;
+        let name = userProfiles[0].label;
+        let matches = name.match(/\b(\w)/g); // [D,P,R]
+        let initials = matches.join("").substring(0, 2); // DPR
+        Localizer.getString("you_yet_respond").then(function(result) {
+            UxUtils.setAppend("div#root div:first", UxUtils.getInitials(myUserId, initials, result));
+            UxUtils.setAppend("div#root div:first", UxUtils.breakline());
+            UxUtils.setAfter("div#" + myUserId, UxUtils.breakline());
         });
     }
 
@@ -730,19 +739,19 @@ async function getUserprofile() {
     let memberIds = [];
     responderDate = [];
     actionNonResponders = [];
-    if (actionDataRowsLength > 0) {
-        for (let i = 0; i < actionDataRowsLength; i++) {
-            memberIds.push(actionDataRows[i].creatorId);
+    if (selfResponseDataRowsLength > 0) {
+        for (let i = 0; i < selfResponseDataRowsLength; i++) {
+            memberIds.push(selfResponseDataRows[i].creatorId);
             let requestResponders = ActionHelper.getSusbscriptionMembers(
-                actionContext.subscription, [actionDataRows[i].creatorId]
+                actionContext.subscription, [selfResponseDataRows[i].creatorId]
             ); // ids of responders
 
             let responseResponders = await ActionHelper.executeApi(requestResponders);
-            let perUserProfile = responseResponders.members;
+            let perUserProfiles = responseResponders.members;
             responderDate.push({
-                label: perUserProfile[0].displayName,
-                value: new Date(actionDataRows[i].updateTime).toDateString(),
-                value2: perUserProfile[0].id,
+                label: perUserProfiles[0].displayName,
+                value: new Date(selfResponseDataRows[i].updateTime).toDateString(),
+                value2: perUserProfiles[0].id,
             });
         }
     }
@@ -769,7 +778,15 @@ async function getUserprofile() {
  */
 function getResponders() {
     UxUtils.setHtml("table#responder-table tbody", "");
-
+    responderDate = [];
+    for (let i = 0; i < allRespondersDataRows.length; i++) {
+        let perUserProfile = userIdToMembersMap[allRespondersDataRows[i].creatorId];
+        responderDate.push({
+            label: perUserProfile.displayName,
+            value: new Date(allRespondersDataRows[i].updateTime).toDateString(),
+            value2: perUserProfile.id,
+        });
+    }
     for (let itr = 0; itr < responderDate.length; itr++) {
         let name = "";
         name = responderDate[itr].label;
@@ -778,7 +795,7 @@ function getResponders() {
         let date = respondDate.toLocaleDateString(context.locale, options);
         let matches = responderDate[itr].label.match(/\b(\w)/g); // [D,P,R]
         let initials = matches.join("").substring(0, 2); // DPR
-        let score = scoreCalculate(responderDate[itr].value2);
+        let score = scoreCalculate(responderDate[itr].value2, allRespondersDataRows);
         UxUtils.setAppend($(".tabs-content:first").find("table#responder-table tbody"), UxUtils.getResponderScoreWithDate(responderDate[itr].value2, initials, name, date, scoreKey, score));
     }
 }
@@ -787,9 +804,10 @@ function getResponders() {
  * @description scoreCalculate method Calculate the score
  * @param userId String Identifier
  */
-function scoreCalculate(userId) {
+function scoreCalculate(userId, dataRows) {
     let total = 0;
     let score = 0;
+    let dataRowsLength = dataRows.length;
     actionInstance.dataTables.forEach((dataTable) => {
         total = Object.keys(dataTable.dataColumns).length;
 
@@ -798,8 +816,8 @@ function scoreCalculate(userId) {
             actionInstance.customProperties[5].value
         );
 
-        for (let i = 0; i < actionDataRowsLength; i++) {
-            if (actionDataRows[i].creatorId == userId) {
+        for (let i = 0; i < dataRowsLength; i++) {
+            if (dataRows[i].creatorId == userId) {
                 for (let c = 0; c < correctResponse.length; c++) {
                     let correctAnsString = "";
                     let userAnsString = "";
@@ -813,15 +831,15 @@ function scoreCalculate(userId) {
                         correctAnsString = correctResponse[c];
                     }
 
-                    if (Utils.isJson(actionDataRows[i].columnValues[c + 1])) {
-                        let responderAnsArr = JSON.parse(actionDataRows[i].columnValues[c + 1]);
+                    if (Utils.isJson(dataRows[i].columnValues[c + 1])) {
+                        let responderAnsArr = JSON.parse(dataRows[i].columnValues[c + 1]);
                         if (responderAnsArr.length > 1) {
                             userAnsString = responderAnsArr.join(",");
                         } else {
                             userAnsString = responderAnsArr[0];
                         }
                     } else {
-                        userAnsString = actionDataRows[i].columnValues[c + 1];
+                        userAnsString = dataRows[i].columnValues[c + 1];
                     }
 
                     if (correctAnsString == userAnsString) {
@@ -899,9 +917,9 @@ function createResponderQuestionView(userId, responder = "") {
                 /* User Responded */
                 let userResponse = [];
                 let userResponseAnswer = "";
-                for (let i = 0; i < actionDataRowsLength; i++) {
-                    if (actionDataRows[i].creatorId == userId) {
-                        userResponse = actionDataRows[i].columnValues;
+                for (let i = 0; i < selfResponseDataRowsLength; i++) {
+                    if (selfResponseDataRows[i].creatorId == userId) {
+                        userResponse = selfResponseDataRows[i].columnValues;
                         let userResponseLength = Object.keys(userResponse).length;
 
                         for (let j = 1; j <= userResponseLength; j++) {
@@ -1002,7 +1020,7 @@ function createResponderQuestionView(userId, responder = "") {
 /**
  * @description Method to create responder correct and incorrect quiz responses
  */
-function createCreatorQuestionView() {
+async function createCreatorQuestionView() {
     total = 0;
     score = 0;
     UxUtils.setHtml("div#root > div.question-content", "");
@@ -1010,7 +1028,17 @@ function createCreatorQuestionView() {
     Localizer.getString("aggregrateResult").then(function(result) {
         UxUtils.setAfter("div.progress-section", UxUtils.getaggregrateTextContainer(myUserId, result));
     });
-
+    if (allRespondersDataRows.length == 0) {
+        allRespondersDataRows = await ActionHelper.getAllDataRows(actionId);
+        allRespondersDataRowsLength = allRespondersDataRows.length;
+    }
+    if (allSubscriptionMembers.length == 0) {
+        allSubscriptionMembers = await ActionHelper.getAllSubscriptionMembers(actionContext.subscription);
+        userIdToMembersMap = {};
+        allSubscriptionMembers.forEach(member => {
+            userIdToMembersMap[member.id] = member;
+        });
+    }
     actionInstance.dataTables.forEach((dataTable) => {
         let scoreArray = {};
         let correctResponse = JSON.parse(
@@ -1060,7 +1088,7 @@ function createCreatorQuestionView() {
             scoreArray[question.name] = 0;
 
             /* check for correct answer for each users */
-            for (let i = 0; i < actionDataRowsLength; i++) {
+            for (let i = 0; i < allRespondersDataRowsLength; i++) {
 
                 for (let c = 0; c < correctResponse.length; c++) {
                     let correctAnsString = "";
@@ -1075,15 +1103,15 @@ function createCreatorQuestionView() {
                         correctAnsString = correctResponse[c];
                     }
 
-                    if (Utils.isJson(actionDataRows[i].columnValues[count])) {
-                        let responderAnsArr = JSON.parse(actionDataRows[i].columnValues[count]);
+                    if (Utils.isJson(allRespondersDataRows[i].columnValues[count])) {
+                        let responderAnsArr = JSON.parse(allRespondersDataRows[i].columnValues[count]);
                         if (responderAnsArr.length > 1) {
                             userAnsString = responderAnsArr.join(",");
                         } else {
                             userAnsString = responderAnsArr[0];
                         }
                     } else {
-                        userAnsString = actionDataRows[i].columnValues[count];
+                        userAnsString = allRespondersDataRows[i].columnValues[count];
                     }
 
                     if (correctAnsString == userAnsString) {
@@ -1103,8 +1131,8 @@ function createCreatorQuestionView() {
                 let $cardDiv = $(`<div class="card-box card-bg card-border mb--8 "></div>`);
                 let userResponse = [];
                 let userResponseAnswer = "";
-                for (let i = 0; i < actionDataRowsLength; i++) {
-                    userResponse = actionDataRows[i].columnValues;
+                for (let i = 0; i < allRespondersDataRowsLength; i++) {
+                    userResponse = allRespondersDataRows[i].columnValues;
                     let userResponseLength = Object.keys(userResponse).length;
                     let userResArr = [];
                     for (let j = 1; j <= userResponseLength; j++) {
@@ -1171,10 +1199,10 @@ function createCreatorQuestionView() {
                 UxUtils.setAppend($quesContDiv, $cardDiv);
             });
 
-            if (actionDataRowsLength == 0) {
+            if (allRespondersDataRowsLength == 0) {
                 UxUtils.setHtml($dflexDiv.find("#status-" + question.name), UxUtils.getAggregrateScoreContainer("0", correctKey));
             } else {
-                let aggregrateQuestionScore = ((scoreArray[question.name] * 100) / actionDataRowsLength);
+                let aggregrateQuestionScore = ((scoreArray[question.name] * 100) / allRespondersDataRowsLength);
                 if (aggregrateQuestionScore % 1 != 0) {
                     aggregrateQuestionScore = aggregrateQuestionScore.toFixed(2);
                 }
@@ -1188,10 +1216,13 @@ function createCreatorQuestionView() {
  * @description Method for Question view based on user id
  * @param user id String contains userId
  */
-function createQuestionView(userId) {
+async function createQuestionView(userId) {
     total = 0;
     score = 0;
     UxUtils.setHtml("div#root > div.question-content", "");
+    let userDataRowRequest = ActionHelper.requestDataRows(actionId, userId);
+    let userDataRowResponse = await ActionHelper.executeApi(userDataRowRequest);
+    userDataRowResponse = userDataRowResponse.dataRows;
     actionInstance.dataTables.forEach((dataTable) => {
         total = Object.keys(dataTable.dataColumns).length;
         dataTable.dataColumns.forEach((question, ind) => {
@@ -1233,9 +1264,9 @@ function createQuestionView(userId) {
                 /* User Responded */
                 let userResponse = [];
                 let userResponseAnswer = "";
-                for (let i = 0; i < actionDataRowsLength; i++) {
-                    if (actionDataRows[i].creatorId == userId) {
-                        userResponse = actionDataRows[i].columnValues;
+                for (let i = 0; i < userDataRowResponse.length; i++) {
+                    if (userDataRowResponse[i].creatorId == userId) {
+                        userResponse = userDataRowResponse[i].columnValues;
                         let userResponseLength = Object.keys(userResponse).length;
                         for (let j = 1; j <= userResponseLength; j++) {
                             if (Utils.isJson(userResponse[j]) == true) {

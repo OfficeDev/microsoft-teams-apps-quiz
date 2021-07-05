@@ -300,4 +300,18 @@ export class Constants {
     static getOptionLimit() {
         return 10;
     }
+
+    /**
+     * @Method for getting page size for fetching action data rows
+     */
+    static getPageSizeForFetchingDataRows() {
+        return 100;
+    }
+    
+    /**
+     * @Method for getting page size to fetch the group members
+     */
+    static getPageSizeForFetchingSubscriptionMembers() {
+        return 999;
+    }
 }

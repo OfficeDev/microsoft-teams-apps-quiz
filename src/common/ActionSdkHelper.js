@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import * as actionSDK from "@microsoft/m365-action-sdk";
+import { Constants } from "./utils/Constants";
 
 export class Localizer {
     /**
@@ -79,8 +80,44 @@ export class ActionHelper {
      * Method to get action data row
      * @param actionId string identifier
      */
-    static requestDataRows(actionId) {
-        return new actionSDK.GetActionDataRows.Request(actionId);
+     static requestDataRows(actionId, creatorId = "self") {
+        return new actionSDK.GetActionDataRows.Request(actionId, creatorId);
+    }
+
+    /**
+     * Method to get all action data rows
+     * @param actionId string identifier
+     */
+     static async getAllDataRows(actionId) {
+        let dataRows = [];
+        let continuationToken = null;
+        while (true) {
+            let dataRowsResponse = await this.executeApi(new actionSDK.GetActionDataRows.Request(actionId, null, continuationToken, Constants.getPageSizeForFetchingDataRows()));
+            dataRows = [...dataRows, ...dataRowsResponse.dataRows];
+            if (!dataRowsResponse.continuationToken || dataRowsResponse.continuationToken == "") {
+                break;
+            }
+            continuationToken = dataRowsResponse.continuationToken;
+        }
+        return dataRows;
+    }
+
+    /**
+     * Method to get all subscription members
+     * @param subscription string identifier
+     */
+    static async getAllSubscriptionMembers(subscription) {
+        let members = [];
+        let continuationToken = null;
+        while (true) {
+            let membersResponse = await this.executeApi(new actionSDK.GetSubscriptionMembers.Request(subscription, null /* all members */, continuationToken, Constants.getPageSizeForFetchingSubscriptionMembers()));
+            members = [...members, ...membersResponse.members];
+            if (!membersResponse.continuationToken || membersResponse.continuationToken == "") {
+                break;
+            }
+            continuationToken = membersResponse.continuationToken;
+        }
+        return members;
     }
 
     /**
