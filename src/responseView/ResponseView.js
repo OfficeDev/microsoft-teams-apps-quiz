@@ -914,7 +914,7 @@ function summarySection() {
                 }
                 let cardQuestion = $(val).clone().show();
                 UxUtils.setAppend($cardQuestionDiv, cardQuestion);
-                if (answerIs == "Correct") {
+                if (answerIs == correctKey) {
                     score++;
                 }
             });
