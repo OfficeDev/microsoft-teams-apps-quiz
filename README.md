@@ -1,5 +1,10 @@
 # Quiz  App Template
 
+## Retirement Notice
+
+The Apps created using this app-template will be active until 10th February. Users will be able to retrieve any data until 10th March. On 10th March 2023, the apps will be fully retired. For related queries, feel free to reach out to ActionServiceSupport@microsoft.com
+
+
 | [Documentation](https://github.com/OfficeDev/microsoft-teams-apps-quiz/wiki/Home) | [Deployment guide](https://github.com/OfficeDev/microsoft-teams-apps-quiz/wiki/Deployment-guide) | [Architecture](https://github.com/OfficeDev/microsoft-teams-apps-quiz/wiki/Solution-overview) | [Costing](https://github.com/OfficeDev/microsoft-teams-apps-quiz/wiki/Costing) |
 |---- | ---- | ---- | ---- |
 
